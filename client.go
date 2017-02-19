@@ -8,7 +8,8 @@ import (
 	"sync"
 )
 
-const use_debug_proxy = true
+//const use_debug_proxy = true
+const use_debug_proxy = false
 
 type Client struct {
 	conn net.Conn
@@ -16,6 +17,12 @@ type Client struct {
 	requests_mu      sync.Mutex
 	requests_next_id uint32
 	requests         map[uint32]chan *Response
+
+	version uint32
+	shm     bool
+	memfd   bool
+
+	client_index uint32
 }
 
 type Request struct {
@@ -53,6 +60,31 @@ func (c *Client) Close() {
 	c.conn.Close()
 }
 
+func (c *Client) SetNegotiatedVersion(req *CommandAuth, resp *CommandAuthReply) {
+	c.version = req.Version
+	if resp.Version < req.Version {
+		c.version = resp.Version
+	}
+	c.shm = req.Shm
+	if !resp.Shm {
+		c.shm = false
+	}
+	c.memfd = req.Memfd
+	if !resp.Memfd {
+		c.memfd = false
+	}
+	fmt.Printf("Negotiated native protocol version %d (shm %v memfd %v)\n", c.version, c.shm, c.memfd)
+}
+
+func (c *Client) GetNegotiatedVersion() uint32 {
+	return c.version
+}
+
+func (c *Client) SetIndex(index uint32) {
+	c.client_index = index
+	fmt.Printf("Client index %d\n", c.client_index)
+}
+
 func (c *Client) reader() {
 	defer c.conn.Close()
 
@@ -62,6 +94,7 @@ func (c *Client) reader() {
 			fmt.Println(err)
 			return
 		}
+		frame.Client = c
 
 		c.requests_mu.Lock()
 		rc := c.requests[frame.Tag]
@@ -71,11 +104,23 @@ func (c *Client) reader() {
 		c.requests_mu.Unlock()
 
 		if rc == nil {
-			fmt.Println("!Read frame", frame)
+			if frame.Cmd == Command_REQUEST {
+				// Ignore these for now.
+			} else {
+				fmt.Println("!Read frame", frame, "cmd")
+			}
 		} else {
 			rc <- &Response{Frame: frame}
 			close(rc)
 		}
+	}
+}
+
+func NewRequest(command Commander) *Request {
+	return &Request{
+		&Frame{
+			Command: command,
+		},
 	}
 }
 
@@ -93,6 +138,7 @@ func (c *Client) Request(req *Request) (*Response, error) {
 	c.requests[id] = rc
 	c.requests_mu.Unlock()
 
+	req.Frame.Client = c
 	req.Frame.Length = 0
 	req.Frame.Channel = 0xffffffff
 	req.Frame.OffsetHigh = 0
@@ -122,5 +168,18 @@ func (c *Client) Request(req *Request) (*Response, error) {
 	}
 
 	resp := <-rc
-	return resp, resp.Err
+
+	if resp.Err != nil {
+		return resp, resp.Err
+	}
+
+	resp.Frame.Origin = req.Frame.Command
+	err = resp.Frame.ReadCommand()
+	if err != nil {
+		return resp, err
+	}
+
+	fmt.Println(req.Frame.Command, "->", resp.Frame.Command)
+
+	return resp, nil
 }

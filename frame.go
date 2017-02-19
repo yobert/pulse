@@ -19,6 +19,7 @@ const (
 )
 
 type Frame struct {
+	Client *Client
 	Length uint32
 	Buf    *bytes.Buffer
 
@@ -31,6 +32,7 @@ type Frame struct {
 	Tag uint32
 
 	Command Commander
+	Origin  Commander
 }
 
 func (f *Frame) String() string {
@@ -71,12 +73,46 @@ func ReadFrame(r io.Reader) (*Frame, error) {
 		return nil, err
 	}
 
-	switch f.Cmd {
-	case Command_AUTH:
-	case Command_REPLY:
-	}
+	// Don't decode the command yet. We need to associate a reply with
+	// it's original request before we can do it easily.
+	// See Decode()
 
 	return f, nil
+}
+
+func (f *Frame) ReadCommand() error {
+	var c Commander
+
+	switch f.Cmd {
+	case Command_REPLY:
+		if f.Origin != nil {
+			switch f.Origin.Cmd() {
+			case Command_AUTH:
+				c = &CommandAuthReply{}
+			case Command_SET_CLIENT_NAME:
+				c = &CommandSetClientNameReply{}
+			case Command_CREATE_PLAYBACK_STREAM:
+				c = &CommandCreatePlaybackStreamReply{}
+			}
+		}
+	}
+
+	if c == nil {
+		if f.Origin == nil {
+			return fmt.Errorf("Not sure how to read command code %d", f.Cmd)
+		} else {
+			return fmt.Errorf("Not sure how to read command code %d (from origin %s)", f.Origin.String())
+		}
+	}
+
+	err := c.ReadFrom(f.Buf, f.Client.GetNegotiatedVersion())
+	if err != nil {
+		return err
+	}
+
+	// success!
+	f.Command = c
+	return nil
 }
 
 func (f *Frame) WriteTo(w io.Writer) error {
@@ -84,31 +120,37 @@ func (f *Frame) WriteTo(w io.Writer) error {
 
 	f.Buf = &bytes.Buffer{}
 
-	if err := bwrite(f.Buf,
+	n, err := bwrite(f.Buf,
 		f.Length, // dummy value-- we'll overwrite at the end when we know our final length
 		f.Channel,
 		f.OffsetHigh,
 		f.OffsetLow,
 		f.Flags,
-	); err != nil {
-		return err
-	}
-
-	if err := bwrite(f.Buf,
-		Uint32,
-		f.Cmd,
-		Uint32,
-		f.Tag,
-	); err != nil {
-		return err
-	}
-
-	n, err := f.Command.WriteTo(f.Buf)
+	)
 	if err != nil {
 		return err
 	}
 
-	n += 10 // For the command and tag entries above
+	// apparently we don't want to actually count the first 20 bytes.
+	n = 0
+
+	n2, err := bwrite(f.Buf,
+		Uint32Value,
+		f.Cmd,
+		Uint32Value,
+		f.Tag,
+	)
+	n += n2
+	if err != nil {
+		return err
+	}
+
+	n2, err = f.Command.WriteTo(f.Buf, f.Client.GetNegotiatedVersion())
+	n += n2
+	if err != nil {
+		return err
+	}
+
 	if n > FRAME_SIZE_MAX_ALLOW {
 		return fmt.Errorf("Frame size %d is too long (only %d allowed)", n, FRAME_SIZE_MAX_ALLOW)
 	}
@@ -116,7 +158,7 @@ func (f *Frame) WriteTo(w io.Writer) error {
 
 	// Rewrite size entry at start of buffer
 	start := &bytes.Buffer{}
-	if err = bwrite(start, f.Length); err != nil {
+	if _, err = bwrite(start, f.Length); err != nil {
 		return err
 	}
 	copy(f.Buf.Bytes(), start.Bytes())

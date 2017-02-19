@@ -30,6 +30,10 @@ func main() {
 func dbg(buf []byte) {
 	for i, v := range buf {
 		fmt.Printf("\t%d\t%08b %02x %03d", i, v, v, v)
+		if i > 512 {
+			fmt.Println("...")
+			return
+		}
 		if v > 31 && v < 127 {
 			fmt.Printf(" '%c'", v)
 		}
@@ -43,6 +47,16 @@ func dbg(buf []byte) {
 			} else {
 				fmt.Printf(" %v", err)
 			}
+		}
+		if v == 't' {
+			str := ""
+			for ii := i + 1; ii < len(buf); ii++ {
+				if buf[ii] == 0 {
+					break
+				}
+				str += string(buf[ii])
+			}
+			fmt.Printf(" %#v", str)
 		}
 
 		fmt.Println()
@@ -61,7 +75,7 @@ func serve(conn net.Conn) {
 	go func() {
 		defer proxy.Close()
 
-		buf := make([]byte, 1024)
+		buf := make([]byte, 1024*1024)
 		for {
 			n, err := proxy.Read(buf)
 			if err != nil {
@@ -79,7 +93,7 @@ func serve(conn net.Conn) {
 		}
 	}()
 
-	buf := make([]byte, 1024)
+	buf := make([]byte, 1024*1024)
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
