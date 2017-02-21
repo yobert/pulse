@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+func Saw(x float64) float64 {
+	return math.Abs(math.Mod(x+0.5, 1))*2 - 1
+}
+
 func bwrite(w io.Writer, data ...interface{}) (int, error) {
 	n := 0
 	for _, v := range data {
@@ -211,6 +215,7 @@ func Ding() error {
 
 	t := 0.0
 
+	ii := 0
 	for {
 		f := &Frame{}
 		f.Length = uint32(samples_per_frame * bytes_per_sample)
@@ -229,6 +234,11 @@ func Ding() error {
 		for i := 0; i < samples_per_frame; i++ {
 
 			v := math.Sin(t * 2 * math.Pi * 440)
+			v += math.Sin(t * 2 * math.Pi * 261.63)
+			v += math.Sin(t * 2 * math.Pi * 349.23)
+			//			v := Saw(t * 440)
+			//			v += Saw(t * 261.63)
+			//			v += Saw(t * 349.23)
 			v *= 0.1
 
 			if err := binary.Write(f.Buf, binary.LittleEndian, float32(v)); err != nil {
@@ -244,7 +254,10 @@ func Ding() error {
 		}
 		fmt.Printf("wrote %d length audio frame (%d bytes)\n", f.Length, n)
 
-		time.Sleep(time.Duration(float64(time.Second) * seconds_per_frame * 0.999))
+		if ii > 10 {
+			time.Sleep(time.Duration(float64(time.Second) * seconds_per_frame))
+		}
+		ii++
 	}
 
 	fmt.Println("blocking")
