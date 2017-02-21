@@ -7,15 +7,15 @@ import (
 )
 
 const (
-	FRAME_SIZE_MAX_ALLOW = 1024 * 1024 * 16
+	FrameSizeMax = 1024 * 1024 * 16
 
-	PA_FLAG_SHMDATA             uint32 = 0x80000000
-	PA_FLAG_SHMDATA_MEMFD_BLOCK uint32 = 0x20000000
-	PA_FLAG_SHMRELEASE          uint32 = 0x40000000
-	PA_FLAG_SHMREVOKE           uint32 = 0xC0000000
-	PA_FLAG_SHMMASK             uint32 = 0xFF000000
-	PA_FLAG_SEEKMASK            uint32 = 0x000000FF
-	PA_FLAG_SHMWRITABLE         uint32 = 0x00800000
+	FlagSHMData           uint32 = 0x80000000
+	FlagSHMDataMemFDBlock uint32 = 0x20000000
+	FlagSHMRelease        uint32 = 0x40000000
+	FlagSHMRevoke         uint32 = 0xC0000000
+	FlagSHMMask           uint32 = 0xFF000000
+	FlagSeekMask          uint32 = 0x000000FF
+	FlagSHMWritable       uint32 = 0x00800000
 )
 
 type Frame struct {
@@ -36,8 +36,25 @@ type Frame struct {
 }
 
 func (f *Frame) String() string {
-	r := fmt.Sprintf("channel %08x flags %08x offset %08x / %08x cmd %d tag %d (%d bytes)",
-		f.Channel, f.Flags, f.OffsetHigh, f.OffsetLow, f.Cmd, f.Tag, f.Length)
+	r := ""
+	if f.Channel != 0xffffffff {
+		r += fmt.Sprintf("channel %08x ", f.Channel)
+	}
+	if f.Flags != 0 {
+		r += fmt.Sprintf("flags %08x ", f.Flags)
+	}
+	if f.OffsetHigh != 0 || f.OffsetLow != 0 {
+		r += fmt.Sprintf("offset %08x / %08x ", f.OffsetHigh, f.OffsetLow)
+	}
+
+	r += fmt.Sprintf("cmd %d ", f.Cmd)
+
+	if f.Tag != 0xffffffff {
+		r += fmt.Sprintf("tag %d ", f.Tag)
+	}
+
+	r += fmt.Sprintf("(%d bytes)", f.Length)
+
 	return r
 }
 
@@ -54,8 +71,8 @@ func ReadFrame(r io.Reader) (*Frame, error) {
 		return nil, err
 	}
 
-	if f.Length > FRAME_SIZE_MAX_ALLOW {
-		return nil, fmt.Errorf("Frame size %d is too long (only %d allowed)", f.Length, FRAME_SIZE_MAX_ALLOW)
+	if f.Length > FrameSizeMax {
+		return nil, fmt.Errorf("Frame size %d is too long (only %d allowed)", f.Length, FrameSizeMax)
 	}
 
 	f.Buf.Grow(int(f.Length) + 16)
@@ -151,8 +168,8 @@ func (f *Frame) WriteTo(w io.Writer) error {
 		return err
 	}
 
-	if n > FRAME_SIZE_MAX_ALLOW {
-		return fmt.Errorf("Frame size %d is too long (only %d allowed)", n, FRAME_SIZE_MAX_ALLOW)
+	if n > FrameSizeMax {
+		return fmt.Errorf("Frame size %d is too long (only %d allowed)", n, FrameSizeMax)
 	}
 	f.Length = uint32(n)
 

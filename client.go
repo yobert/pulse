@@ -104,11 +104,7 @@ func (c *Client) reader() {
 		c.requests_mu.Unlock()
 
 		if rc == nil {
-			if frame.Cmd == Command_REQUEST {
-				// Ignore these for now.
-			} else {
-				fmt.Println("!Read frame", frame, "cmd")
-			}
+			fmt.Println("!Wild frame", frame)
 		} else {
 			rc <- &Response{Frame: frame}
 			close(rc)

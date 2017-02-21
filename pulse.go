@@ -228,7 +228,8 @@ func Ding() error {
 
 		for i := 0; i < samples_per_frame; i++ {
 
-			v := math.Sin(t*2*math.Pi*440) * 0.1
+			v := math.Sin(t * 2 * math.Pi * 440)
+			v *= 0.1
 
 			if err := binary.Write(f.Buf, binary.LittleEndian, float32(v)); err != nil {
 				return err

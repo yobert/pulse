@@ -94,25 +94,25 @@ const (
 
 	/* A few more client->server commands */
 
-	Command_MOVE_SINK_INPUT
+	Command_MOVE_SINK_INPUT // 67
 	Command_MOVE_SOURCE_OUTPUT
 	Command_SET_SINK_INPUT_MUTE
 	Command_SUSPEND_SINK
 	Command_SUSPEND_SOURCE
 
-	Command_SET_PLAYBACK_STREAM_BUFFER_ATTR
+	Command_SET_PLAYBACK_STREAM_BUFFER_ATTR // 72
 	Command_SET_RECORD_STREAM_BUFFER_ATTR
 
-	Command_UPDATE_PLAYBACK_STREAM_SAMPLE_RATE
+	Command_UPDATE_PLAYBACK_STREAM_SAMPLE_RATE // 74
 	Command_UPDATE_RECORD_STREAM_SAMPLE_RATE
 
 	/* SERVER->CLIENT */
-	Command_PLAYBACK_STREAM_SUSPENDED
+	Command_PLAYBACK_STREAM_SUSPENDED // 76
 	Command_RECORD_STREAM_SUSPENDED
 	Command_PLAYBACK_STREAM_MOVED
 	Command_RECORD_STREAM_MOVED
 
-	Command_UPDATE_RECORD_STREAM_PROPLIST
+	Command_UPDATE_RECORD_STREAM_PROPLIST // 80
 	Command_UPDATE_PLAYBACK_STREAM_PROPLIST
 	Command_UPDATE_CLIENT_PROPLIST
 	Command_REMOVE_RECORD_STREAM_PROPLIST
@@ -120,11 +120,11 @@ const (
 	Command_REMOVE_CLIENT_PROPLIST
 
 	/* SERVER->CLIENT */
-	Command_STARTED
+	Command_STARTED // 86
 
-	Command_EXTENSION
+	Command_EXTENSION // 87
 
-	Command_GET_CARD_INFO
+	Command_GET_CARD_INFO // 88
 	Command_GET_CARD_INFO_LIST
 	Command_SET_CARD_PROFILE
 
@@ -446,7 +446,7 @@ type CommandCreatePlaybackStreamReply struct {
 }
 
 func (c *CommandCreatePlaybackStreamReply) String() string {
-	return fmt.Sprintf("CREATE PLAYBACK STREAM REPLY (index %d, %d:%#v) %s", c.StreamIndex, c.SinkInputSinkIndex, c.SinkInputSinkName, c.Props.String())
+	return fmt.Sprintf("CREATE PLAYBACK STREAM REPLY (index %d/%d/%d missing %d %#v, format %s %d %dhz) %s", c.StreamIndex, c.SinkInputIndex, c.SinkInputSinkIndex, c.Missing, c.SinkInputSinkName, c.Format, c.Channels, c.Rate, c.Props.String())
 }
 func (c *CommandCreatePlaybackStreamReply) Cmd() uint32 {
 	return Command_REPLY
