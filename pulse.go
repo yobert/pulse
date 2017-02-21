@@ -179,7 +179,7 @@ func Ding() error {
 		Format:        SampleFloat32LE,
 		Channels:      1,
 		Rate:          rate,
-		ChannelMap:    []byte{1},
+		ChannelMap:    []byte{0},
 		ChannelVolume: []uint32{256},
 		Props: PropList{
 			V: map[string]string{
