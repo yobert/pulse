@@ -1,5 +1,5 @@
 # NOTE:
-Someone nice has rewritten this package into a much better package! See https://github.com/jfreymuth/pulse
+Someone nice has rewritten this package into a much better package, with better code, a better API, and more protocol coverage! See https://github.com/jfreymuth/pulse
 
 # pulse
 PulseAudio client implementation in pure Go
